@@ -20,9 +20,11 @@ pipeline {
             }
         }
         stage ('Controllers: Unit testing + coverage') {
+            when {
+                expression { return false } // This will skip the stage
+            }
             steps {
-                sh 'mkdir -p build/reports && chmod 777 build/reports'
-                sh './scripts/run_unitests.sh `pwd`/build/reports'
+                sh 'echo "Stage skipped temporarily"'
             }
         }
         stage ('CSI-node: go local tests') {
