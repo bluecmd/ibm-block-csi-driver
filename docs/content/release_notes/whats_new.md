@@ -9,4 +9,8 @@ IBM® block storage CSI driver 1.13.0 adds support for:
 
 ## Miscellaneous resolved issues
 
-For information about the resolved issues in version 1.13.0, see [1.13.0 (TBD)](changelog_1.13.0.md).
+For information about the resolved issues in version 1.13.0, see [1.13.0](changelog_1.13.0.md).
+
+NOTE: In this version a persistency over upgrade for configuration change has been added. If you want your configuration to be saved over upgrade to this version, create a configmap prior to upgrading to this version! On the next upgrade you will already have this configmap and will not have to create it again.{: attention}
+
+More info regarding this configmap in [Configuring the host definer](content/configuration/configuring_hostdefiner.md)
