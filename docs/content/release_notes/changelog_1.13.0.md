@@ -16,5 +16,5 @@ IBM® block storage CSI driver version 1.13.0 resolved the following issues:
 
 |Ticket ID|Severity|Description|
 |---------|--------|-----------|
-|**CSI-5900**|Medium|Configuration parameters are now saved in config maps for persistency|
-|**CSI-4095**|Medium|Removed internal restriction for maximum usable volumes on IBM Storage Virtualize® storage|
+|**CSI-5900**|Medium|Configuration parameters are now saved in config maps for upgrade persistency|
+|**CSI-4095**|Medium|Removed internal restriction for maximum usable number of volumes on IBM Storage Virtualize® storage|
