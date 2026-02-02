@@ -46,7 +46,6 @@ var ConfigYaml = driver.ConfigFile{
 	Controller: driver.Controller{Publish_context_separator: ","},
 	Parameters: driver.Parameters{
 		Object_id_info: driver.Object_id_info{Delimiter: ":", Ids_delimiter: ";"},
-		Node_id_info:   driver.Node_id_info{Delimiter: ";", Fcs_delimiter: ":"},
 	},
 	Connectivity_type: driver.Connectivity_type{Nvme_over_fc: "nvmeofc", Fc: "fc", Iscsi: "iscsi"},
 }
