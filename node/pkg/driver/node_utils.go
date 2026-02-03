@@ -529,28 +529,24 @@ func (n NodeUtils) UpdateNodeInitiatorsAnnotation(ctx context.Context, nodeName 
 		return err
 	}
 
-	const (
-		TypeNVMe  = "nvme"
-		TypeFC    = "fc"
-		TypeISCSI = "iscsi"
-	)
+	connectivity_type := n.ConfigYaml.Connectivity_type
 
 	portsData := map[string]interface{}{
-		TypeNVMe:  []string{},
-		TypeFC:    []string{},
-		TypeISCSI: []string{},
+		connectivity_type.Nvme_over_fc: []string{},
+		connectivity_type.Fc:           []string{},
+		connectivity_type.Iscsi:        []string{},
 	}
 
 	if nvmeNQN != "" {
-		portsData[TypeNVMe] = []string{nvmeNQN}
+		portsData[connectivity_type.Nvme_over_fc] = []string{nvmeNQN}
 	}
 
 	if len(fcWWNs) > 0 {
-		portsData[TypeFC] = fcWWNs
+		portsData[connectivity_type.Fc] = fcWWNs
 	}
 
 	if iscsiIQN != "" {
-		portsData[TypeISCSI] = []string{iscsiIQN}
+		portsData[connectivity_type.Iscsi] = []string{iscsiIQN}
 	}
 
 	jsonBytes, err := json.Marshal(portsData)
