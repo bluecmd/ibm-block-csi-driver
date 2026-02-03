@@ -97,7 +97,7 @@ def _get_array_connection_info_from_system_info(secrets, system_id):
 def get_node_initiators_data(node_name):
     """
     Return value example:
-    '{"fc":[],"iscsi":["iqn.2016-04.com.open-iscsi:8bce7b6eab12"],"nvme":[]}'
+    '{"fc":[],"iscsi":["iqn.2016-04.com.open-iscsi:8bce7b6eab12"],"nvmeofc":[]}'
     """
     initiators_data = ''
     kubernetes_manager = KubernetesManager()
@@ -115,9 +115,9 @@ def generate_node_initiators_from_string_data(initiators_data):
     Initiators(nvme_nqns=[], fc_wwns=[], iscsi_iqns=['iqn.2016-04.com.open-iscsi:8bce7b6eab12'])
     """
     initiators_data = json.loads(initiators_data)
-    nvme_nqns = initiators_data.get("nvme", [])
-    fc_wwns = initiators_data.get("fc", [])
-    iscsi_iqns = initiators_data.get("iscsi", [])
+    nvme_nqns = initiators_data.get(array_settings.NVME_OVER_FC_CONNECTIVITY_TYPE, [])
+    fc_wwns = initiators_data.get(array_settings.FC_CONNECTIVITY_TYPE, [])
+    iscsi_iqns = initiators_data.get(array_settings.ISCSI_CONNECTIVITY_TYPE, [])
     return Initiators(nvme_nqns, fc_wwns, iscsi_iqns)
 
 
