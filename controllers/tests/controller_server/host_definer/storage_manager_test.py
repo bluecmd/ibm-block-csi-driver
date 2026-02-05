@@ -46,7 +46,6 @@ class BaseSetUp(unittest.TestCase):
         self.request.node_id_from_host_definition = settings.FAKE_NODE_ID
         self.request.array_connection_info = get_array_connection_info_from_secrets(SECRET)
         self.request.io_group = array_settings.DUMMY_MULTIPLE_IO_GROUP_STRING
-
         self.request.node_initiators_from_csi_node = test_utils.initiators_to_json(
             Initiators(iscsi_iqns=[settings.IQN]))
         self.request.node_initiators_from_host_definition = test_utils.initiators_to_json(
