@@ -60,9 +60,8 @@ var (
 )
 
 const (
-	FCPath          = "/sys/class/fc_host"
-	FCPortPath      = "/sys/class/fc_host/host*/port_name"
-	MaxNodeIdLength = 256
+	FCPath     = "/sys/class/fc_host"
+	FCPortPath = "/sys/class/fc_host/host*/port_name"
 )
 
 //go:generate mockgen -destination=../../mocks/mock_NodeMounter.go -package=mocks github.com/ibm/ibm-block-csi-driver/node/pkg/driver NodeMounter
@@ -868,7 +867,7 @@ func (d *NodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoReque
 	}
 
 	var nodeId = d.Hostname
-	err = d.NodeUtils.UpdateNodePortsAnnotation(ctx, d.Hostname, iscsiIQN, fcWWNs, nvmeNQN)
+	err = d.NodeUtils.UpdateNodeInitiatorsAnnotation(ctx, d.Hostname, nvmeNQN, fcWWNs, iscsiIQN)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
