@@ -187,21 +187,16 @@ def get_array_connection_info():
 
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
-def get_define_request(
-    prefix='',
-    connectivity_type='',
-    node_id_from_host_definition='',
-    node_id_from_csi_node=test_settings.FAKE_NODE_ID,
-    initiators_from_host_definition=EMPTY_INITIATORS_STR,
-    initiators_from_csi_node=EMPTY_INITIATORS_STR
-):
+def get_define_request(prefix='', connectivity_type='',
+                       node_id_from_host_definition='',
+                       node_initiators_from_host_definition=EMPTY_INITIATORS_STR):
     return DefineHostRequest(
         prefix=prefix,
         connectivity_type_from_user=connectivity_type,
         node_id_from_host_definition=node_id_from_host_definition,
-        node_initiators_from_host_definition=initiators_from_host_definition,
-        node_id_from_csi_node=node_id_from_csi_node,
-        node_initiators_from_csi_node=initiators_from_csi_node,
+        node_initiators_from_host_definition=node_initiators_from_host_definition,
+        node_id_from_csi_node=test_settings.FAKE_NODE_ID,
+        node_initiators_from_csi_node=EMPTY_INITIATORS_STR,
         array_connection_info=get_array_connection_info(),
         io_group=test_settings.FAKE_STRING_IO_GROUP
     )
