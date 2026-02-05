@@ -242,7 +242,7 @@ def get_fake_managed_node():
 
 def initiators_to_json(initiators: Initiators) -> str:
     return json.dumps({
-        "nvme": initiators.nvme_nqns or [],
+        "nvmeofc": initiators.nvme_nqns or [],
         "fc": initiators.fc_wwns or [],
         "iscsi": initiators.iscsi_iqns or [],
     })
