@@ -27,6 +27,7 @@ class CSIControllerServicer(csi_pb2_grpc.ControllerServicer):
 
     @csi_method(error_response_type=csi_pb2.CreateVolumeResponse, lock_request_attribute="name")
     def CreateVolume(self, request, context):
+        logger.debug("request: {}".format(request))
         try:
             utils.validate_create_volume_request(request)
         except ObjectIdError as ex:
@@ -192,6 +193,7 @@ class CSIControllerServicer(csi_pb2_grpc.ControllerServicer):
 
     @csi_method(error_response_type=csi_pb2.DeleteVolumeResponse, lock_request_attribute="volume_id")
     def DeleteVolume(self, request, context):
+        logger.debug("request: {}".format(request))
         secrets = request.secrets
         utils.validate_delete_volume_request(request)
 
@@ -220,6 +222,7 @@ class CSIControllerServicer(csi_pb2_grpc.ControllerServicer):
 
     @csi_method(error_response_type=csi_pb2.ControllerPublishVolumeResponse, lock_request_attribute="volume_id")
     def ControllerPublishVolume(self, request, context):
+        logger.debug("request: {}".format(request))
         try:
             utils.validate_publish_volume_request(request)
 
@@ -264,6 +267,7 @@ class CSIControllerServicer(csi_pb2_grpc.ControllerServicer):
 
     @csi_method(error_response_type=csi_pb2.ControllerUnpublishVolumeResponse, lock_request_attribute="volume_id")
     def ControllerUnpublishVolume(self, request, context):
+        logger.debug("request: {}".format(request))
         try:
             utils.validate_unpublish_volume_request(request)
 
@@ -302,6 +306,7 @@ class CSIControllerServicer(csi_pb2_grpc.ControllerServicer):
 
     @csi_method(error_response_type=csi_pb2.ValidateVolumeCapabilitiesResponse, lock_request_attribute="volume_id")
     def ValidateVolumeCapabilities(self, request, context):
+        logger.debug("request: {}".format(request))
         try:
             utils.validate_validate_volume_capabilities_request(request)
 
@@ -342,6 +347,7 @@ class CSIControllerServicer(csi_pb2_grpc.ControllerServicer):
 
     @csi_method(error_response_type=csi_pb2.CreateSnapshotResponse, lock_request_attribute="name")
     def CreateSnapshot(self, request, context):
+        logger.debug("request: {}".format(request))
         utils.validate_create_snapshot_request(request)
         source_id = request.source_volume_id
         logger.info("Snapshot base name : {}. Source volume id : {}".format(request.name, source_id))
@@ -407,6 +413,7 @@ class CSIControllerServicer(csi_pb2_grpc.ControllerServicer):
 
     @csi_method(error_response_type=csi_pb2.DeleteSnapshotResponse, lock_request_attribute="snapshot_id")
     def DeleteSnapshot(self, request, context):
+        logger.debug("request: {}".format(request))
         secrets = request.secrets
         utils.validate_delete_snapshot_request(request)
         try:
@@ -442,6 +449,7 @@ class CSIControllerServicer(csi_pb2_grpc.ControllerServicer):
 
     @csi_method(error_response_type=csi_pb2.ControllerExpandVolumeResponse, lock_request_attribute="volume_id")
     def ControllerExpandVolume(self, request, context):
+        logger.debug("request: {}".format(request))
         secrets = request.secrets
         utils.validate_expand_volume_request(request)
         try:
