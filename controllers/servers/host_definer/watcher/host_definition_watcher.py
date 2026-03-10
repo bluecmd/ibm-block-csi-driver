@@ -51,6 +51,9 @@ class HostDefinitionWatcher(Watcher):
             self._handle_pending_host_definition(host_definition_info)
             retries -= 1
             delay_in_seconds *= backoff_in_seconds
+            logger.debug("backoff: retries=%s, next_sleep=%s", retries,
+                         delay_in_seconds * backoff_in_seconds)
+
             sleep(delay_in_seconds)
 
         self._set_host_definition_phase_to_error(host_definition_info)

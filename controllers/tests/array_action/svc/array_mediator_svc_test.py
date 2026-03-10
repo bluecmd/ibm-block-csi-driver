@@ -503,8 +503,8 @@ class TestArrayMediatorSVC(unittest.TestCase):
                                                                  fromsnapshotid=common_settings.INTERNAL_SNAPSHOT_ID,
                                                                  pool=common_settings.DUMMY_POOL1,
                                                                  name=common_settings.VOLUME_NAME)
-        remove_from_volumegroup_call = call(vdisk_id=common_settings.VOLUME_NAME, novolumegroup=True)
-        rename_call = call(vdisk_id=common_settings.INTERNAL_VOLUME_ID, name=common_settings.VOLUME_NAME)
+        remove_from_volumegroup_call = call(vdisk_id=common_settings.SOURCE_VOLUME_NAME, novolumegroup=True)
+        rename_call = call(vdisk_id=common_settings.SOURCE_VOLUME_NAME, name=common_settings.VOLUME_NAME)
         self.svc.client.svctask.chvdisk.assert_has_calls([remove_from_volumegroup_call, rename_call])
         self.svc.client.svctask.rmvolumegroup.assert_called_with(object_id=common_settings.VOLUME_NAME)
 
@@ -526,7 +526,8 @@ class TestArrayMediatorSVC(unittest.TestCase):
                                    self._mock_source_ids(common_settings.INTERNAL_SNAPSHOT_ID),
                                    common_settings.SNAPSHOT_OBJECT_TYPE,
                                    is_virt_snap_func=True)
-        self.svc.client.svctask.rmvolume.assert_called_with(vdisk_id=common_settings.VOLUME_NAME)
+        self.svc.client.svctask.rmvolume.assert_called_with(vdisk_id=common_settings.SOURCE_VOLUME_NAME)
+        # the mock (_prepare_mocks_for_create_volume_mkvolumegroup) returns a volume with name SOURCE_VOLUME_NAME
         self.svc.client.svctask.rmvolumegroup.assert_called_with(object_id=common_settings.VOLUME_NAME)
 
     def test_create_volume_with_empty_string_space_efficiency_success(self):
@@ -2508,10 +2509,11 @@ class TestArrayMediatorSVC(unittest.TestCase):
 
     def test_remove_volume_from_volume_group_success(self):
         cli_volume = self._get_cli_volume(in_volume_group=True)
+        # name is common_settings.SOURCE_VOLUME_NAME
         self.svc.client.svcinfo.lsvdisk.return_value = Mock(as_single_element=cli_volume)
         self.svc.remove_volume_from_volume_group(common_settings.VOLUME_UID, None, None)
 
-        self.svc.client.svctask.chvdisk.assert_called_once_with(vdisk_id=common_settings.VOLUME_NAME,
+        self.svc.client.svctask.chvdisk.assert_called_once_with(vdisk_id=common_settings.SOURCE_VOLUME_NAME,
                                                                 novolumegroup=True)
 
     @patch('{}.is_call_home_enabled'.format('controllers.array_action.array_mediator_svc'))
