@@ -41,22 +41,36 @@ class HostDefinitionWatcher(Watcher):
         retries = settings.HOST_DEFINITION_PENDING_RETRIES
         backoff_in_seconds = settings.HOST_DEFINITION_PENDING_EXPONENTIAL_BACKOFF_IN_SECONDS
         delay_in_seconds = settings.HOST_DEFINITION_PENDING_DELAY_IN_SECONDS
-        while retries > 0:
-            logger.info(messages.VERIFY_HOST_DEFINITION_USING_EXPONENTIAL_BACKOFF.format(
-                host_definition_info.name, retries))
-            if self._is_host_definition_not_pending(host_definition_info) and \
-                    retries != settings.HOST_DEFINITION_PENDING_RETRIES:
-                logger.info(messages.HOST_DEFINITION_IS_NOT_PENDING.format(host_definition_info.name))
-                return
-            self._handle_pending_host_definition(host_definition_info)
-            retries -= 1
-            delay_in_seconds *= backoff_in_seconds
-            logger.debug("backoff: retries=%s, next_sleep=%s", retries,
-                         delay_in_seconds * backoff_in_seconds)
+        succeeded = False
+        try:
+            while retries > 0:
+                logger.info(messages.VERIFY_HOST_DEFINITION_USING_EXPONENTIAL_BACKOFF.format(
+                    host_definition_info.name, retries))
+                try:
+                    latest_obj = self.host_definitions_api.get(name=host_definition_info.name)
+                    latest_info = self._generate_host_definition_info(latest_obj)
+                except Exception:
+                    latest_info = host_definition_info
+
+                if self._is_host_definition_not_pending(latest_info) and \
+                        retries != settings.HOST_DEFINITION_PENDING_RETRIES:
+                    logger.info(messages.HOST_DEFINITION_IS_NOT_PENDING.format(host_definition_info.name))
+                    return
+                succeeded = self._handle_pending_host_definition(host_definition_info)
+                if succeeded:
+                    logger.info("Host definition %s defined successfully", host_definition_info.name)
+                    return
+
+                retries -= 1
 
             sleep(delay_in_seconds)
-
-        self._set_host_definition_phase_to_error(host_definition_info)
+            delay_in_seconds *= backoff_in_seconds
+            logger.debug("backoff: retries=%s, next_sleep=%s",
+                         retries, delay_in_seconds)
+        finally:
+            # Only set error if we did not succeed by the time we exit
+            if not succeeded:
+                self._set_host_definition_phase_to_error(host_definition_info)
 
     def _is_host_definition_not_pending(self, host_definition_info):
         current_host_definition_info_on_cluster = self._get_matching_host_definition_info(
@@ -72,8 +86,11 @@ class HostDefinitionWatcher(Watcher):
             response = self._define_host_after_pending(host_definition_info)
         elif self._is_pending_for_deletion_need_to_be_handled(phase, host_definition_info.node_name):
             response = self._undefine_host_after_pending(host_definition_info)
+        else:
+            return False
         self._handle_message_from_storage(
             host_definition_info, response.error_message, action)
+        return response.error_message == ''
 
     def _get_action(self, phase):
         if phase == settings.PENDING_CREATION_PHASE:
@@ -90,6 +107,7 @@ class HostDefinitionWatcher(Watcher):
             self._update_host_definition_from_storage_response(host_definition_info.name, response)
         else:
             self._delete_host_definition(host_definition_info.name)
+            response.error_message = "Node is not managed by the provided secret; HostDefinition deleted"
         logger.info(response)
         return response
 
@@ -142,5 +160,12 @@ class HostDefinitionWatcher(Watcher):
         return phase == settings.PENDING_DELETION_PHASE and self._is_host_can_be_undefined(node_name)
 
     def _set_host_definition_phase_to_error(self, host_definition_info):
+        try:
+            if self._is_host_definition_not_pending(host_definition_info):
+                return
+        except Exception:
+            # If we can't determine, fall back to setting error
+            pass
+
         logger.info(messages.SET_HOST_DEFINITION_PHASE_TO_ERROR.format(host_definition_info.name))
         self._set_host_definition_status(host_definition_info.name, settings.ERROR_PHASE)
