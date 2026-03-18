@@ -583,9 +583,9 @@ class SVCArrayMediator(ArrayMediatorAbstract, VolumeGroupInterface):
     def _change_volume_size(self, cli_volume, size_in_bytes):
         volume_name = cli_volume.name
         try:
-            self.client.svctask.chvolume(size=size_in_bytes, unit='b', vdisk_id=cli_volume.id)
+            self.client.svctask.chvolume(size=size_in_bytes, unit='b', vdisk_id=volume_name)
         except (svc_errors.CommandExecutionError, CLIFailureError) as ex:
-            logger.debug("Error running chvolume -size {} -unit b -vdisk_id {}".format(size_in_bytes, cli_volume.id))
+            logger.debug("Error running chvolume -size {} -unit b -vdisk_id {}".format(size_in_bytes, volume_name))
             if is_warning_message(ex.my_message):
                 logger.warning("exception encountered during volume expansion of {}: {}".format(volume_name,
                                                                                                 ex.my_message))
