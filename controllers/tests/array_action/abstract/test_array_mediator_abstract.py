@@ -48,6 +48,7 @@ class BaseMediatorAbstractSetUp(unittest.TestCase):
 
         self.mediator.get_host_by_host_identifiers.return_value = (common_settings.HOST_NAME, self.connectivity_type)
         self.mediator.get_array_fc_wwns.return_value = self.fc_ports
+        self.mediator.get_nvme_target_ports.return_value = []
         self.mediator.map_volume.return_value = self.lun_id
         self.hostname = common_settings.HOST_NAME
         self.iqn = array_settings.DUMMY_NODE1_IQN

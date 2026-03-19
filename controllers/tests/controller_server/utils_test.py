@@ -29,7 +29,8 @@ class TestUtils(unittest.TestCase):
                                         "publish_context_connectivity_parameter": "connectivity_type",
                                         "publish_context_separator": ",",
                                         "publish_context_array_iqn": "array_iqn",
-                                        "publish_context_fc_initiators": "fc_wwns"})
+                                        "publish_context_fc_initiators": "fc_wwns",
+                                        "publish_context_nvme_initiators": "PUBLISH_CONTEXT_ARRAY_NVME_INITIATORS"})
 
     def _test_validation_exception(self, util_function, function_arg, str_in_msg="", raised_error=ValidationException):
         with self.assertRaises(raised_error) as context:
