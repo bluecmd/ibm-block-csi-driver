@@ -243,6 +243,7 @@ def initiators_to_json(initiators: Initiators) -> str:
         "iscsi": initiators.iscsi_iqns or [],
     })
 
+
 def wait_until_called(mock, timeout=5, interval=0.1):
     start = time.time()
     while time.time() - start < timeout:
