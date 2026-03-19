@@ -30,7 +30,7 @@ class TestUtils(unittest.TestCase):
                                         "publish_context_separator": ",",
                                         "publish_context_array_iqn": "array_iqn",
                                         "publish_context_fc_initiators": "fc_wwns",
-                                        "publish_context_nvme_initiators": "PUBLISH_CONTEXT_ARRAY_NVME_INITIATORS"})
+                                        "publish_context_nvme_initiators": "nvme_target_ports"})
 
     def _test_validation_exception(self, util_function, function_arg, str_in_msg="", raised_error=ValidationException):
         with self.assertRaises(raised_error) as context:
@@ -422,6 +422,7 @@ class TestUtils(unittest.TestCase):
             self.assertEqual(lun, publish_volume_response.publish_context["lun"])
             self.assertEqual(connectivity_type, publish_volume_response.publish_context["connectivity_type"])
             if connectivity_type == NVME_OVER_FC_CONNECTIVITY_TYPE:
+                self.assertEqual(",".join(array_initiators), publish_volume_response.publish_context["nvme_target_ports"])
                 self.assertIsNone(publish_volume_response.publish_context.get("fc_wwns"))
                 self.assertIsNone(publish_volume_response.publish_context.get("array_iqn"))
             elif connectivity_type == FC_CONNECTIVITY_TYPE:
@@ -435,7 +436,9 @@ class TestUtils(unittest.TestCase):
                 self.assertIsNone(publish_volume_response.publish_context.get("fc_wwns"))
 
     def test_generate_publish_volume_response_success(self):
-        self._check_publish_volume_response_parameters("", NVME_OVER_FC_CONNECTIVITY_TYPE, [])
+        self._check_publish_volume_response_parameters("2", NVME_OVER_FC_CONNECTIVITY_TYPE,
+                                               ["nn-5005076810003f8c:pn-50050768101c3f8c",
+                                                "nn-5005076810003f64:pn-50050768101a3f64"])
 
         self._check_publish_volume_response_parameters("1", FC_CONNECTIVITY_TYPE, ["wwn1", "wwn2"])
 
