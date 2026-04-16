@@ -36,18 +36,21 @@ if [ -z "${RESOLVED}" ]; then
     if [ -n "${CONTAINER_BIN}" ]; then
         # Commands that operate on the host filesystem (mount, umount, mkfs,
         # fsck, etc.) must run via chroot so they see host paths and devices.
-        # Copy the container binary and its libraries to the host, then
-        # chroot and run from there.
+        # Talos uses musl libc while the container uses glibc, so we copy
+        # the binary, its libraries, and the glibc dynamic linker to the
+        # host and invoke via the linker explicitly.
         case "${ME}" in
             mount|umount|mkfs.*|fsck|fsck.*|resize2fs|xfs_growfs|blockdev|blkid|lsblk)
-                mkdir -p "${DIR}/tmp/.csi-bin"
-                cp -f "${CONTAINER_BIN}" "${DIR}/tmp/.csi-bin/${ME}"
-                # Copy dynamic libraries the binaries need
+                CSI_LIB="${DIR}/tmp/.csi-lib"
+                mkdir -p "${CSI_LIB}"
+                cp -f "${CONTAINER_BIN}" "${CSI_LIB}/${ME}"
+                # Copy the glibc dynamic linker and all shared libraries
+                cp -n /lib64/ld-linux-x86-64.so.2 "${CSI_LIB}/" 2>/dev/null
                 ldd "${CONTAINER_BIN}" 2>/dev/null | awk '/=>/ {print $3}' | while read -r lib; do
-                    [ -f "${lib}" ] && cp -n "${lib}" "${DIR}/tmp/.csi-bin/"
+                    [ -f "${lib}" ] && cp -n "${lib}" "${CSI_LIB}/"
                 done
-                exec env -i PATH="${HOST_PATH}" LD_LIBRARY_PATH="/tmp/.csi-bin" \
-                    chroot "${DIR}" "/tmp/.csi-bin/${ME}" "${@:1}"
+                exec chroot "${DIR}" "/tmp/.csi-lib/ld-linux-x86-64.so.2" \
+                    --library-path "/tmp/.csi-lib" "/tmp/.csi-lib/${ME}" "${@:1}"
                 ;;
         esac
         exec "${CONTAINER_BIN}" "${@:1}"
