@@ -11,7 +11,7 @@ fi
 # Resolve the command path by searching the host filesystem from inside the
 # container. This avoids requiring /usr/bin/env to exist on the host, which is
 # not the case on minimal host OSes like Talos Linux.
-HOST_PATH="/sbin:/bin:/usr/bin:/usr/sbin"
+HOST_PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/bin:/usr/sbin"
 RESOLVED=""
 IFS=':' read -ra DIRS <<< "${HOST_PATH}"
 for d in "${DIRS[@]}"; do
