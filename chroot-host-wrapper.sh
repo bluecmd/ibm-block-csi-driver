@@ -8,13 +8,30 @@ if [ ! -d "${DIR}" ]; then
     exit 1
 fi
 
-# sg_map and sg_inq from sg3_utils only need access to /dev, which is
-# available inside the container. Run them directly to avoid requiring
-# sg3_utils on the host.
+# sg_map and sg_inq from sg3_utils need access to host /dev but may not be
+# installed on minimal host OSes. If not found on the host, run the
+# container-bundled binary directly — the CSI node pod has host /dev
+# mounted, so the container binary can access SCSI device nodes.
 if [ "${ME}" = "sg_map" ] || [ "${ME}" = "sg_inq" ]; then
-    CONTAINER_BIN=$(command -v "${ME}" 2>/dev/null)
-    if [ -n "${CONTAINER_BIN}" ]; then
-        exec "${CONTAINER_BIN}" "${@:1}"
+    HOST_HAS_CMD=false
+    for d in /sbin /bin /usr/bin /usr/sbin /usr/local/sbin /usr/local/bin; do
+        if [ -x "${DIR}${d}/${ME}" ]; then
+            HOST_HAS_CMD=true
+            break
+        fi
+    done
+    if [ "${HOST_HAS_CMD}" = "false" ]; then
+        # Look for the real binary, skipping our own /chroot symlinks.
+        CONTAINER_BIN=""
+        for d in /usr/bin /usr/sbin /bin /sbin; do
+            if [ -x "${d}/${ME}" ]; then
+                CONTAINER_BIN="${d}/${ME}"
+                break
+            fi
+        done
+        if [ -n "${CONTAINER_BIN}" ]; then
+            exec "${CONTAINER_BIN}" "${@:1}"
+        fi
     fi
 fi
 
