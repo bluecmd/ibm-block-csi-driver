@@ -8,6 +8,16 @@ if [ ! -d "${DIR}" ]; then
     exit 1
 fi
 
+# sg_map and sg_inq from sg3_utils only need access to /dev, which is
+# available inside the container. Run them directly to avoid requiring
+# sg3_utils on the host.
+if [ "${ME}" = "sg_map" ] || [ "${ME}" = "sg_inq" ]; then
+    CONTAINER_BIN=$(command -v "${ME}" 2>/dev/null)
+    if [ -n "${CONTAINER_BIN}" ]; then
+        exec "${CONTAINER_BIN}" "${@:1}"
+    fi
+fi
+
 # Resolve the command path by searching the host filesystem from inside the
 # container. This avoids requiring /usr/bin/env to exist on the host, which is
 # not the case on minimal host OSes like Talos Linux.
