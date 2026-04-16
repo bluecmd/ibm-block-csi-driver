@@ -41,7 +41,7 @@ if [ -z "${RESOLVED}" ]; then
         # host and invoke via the linker explicitly.
         case "${ME}" in
             mount|umount|mkfs.*|fsck|fsck.*|resize2fs|xfs_growfs|blockdev|blkid|lsblk)
-                CSI_LIB="${DIR}/tmp/.csi-lib"
+                CSI_LIB="${DIR}/var/tmp/.csi-lib"
                 mkdir -p "${CSI_LIB}"
                 cp -f "${CONTAINER_BIN}" "${CSI_LIB}/${ME}"
                 # Copy the glibc dynamic linker and all shared libraries
@@ -49,8 +49,8 @@ if [ -z "${RESOLVED}" ]; then
                 ldd "${CONTAINER_BIN}" 2>/dev/null | awk '/=>/ {print $3}' | while read -r lib; do
                     [ -f "${lib}" ] && cp -n "${lib}" "${CSI_LIB}/"
                 done
-                exec chroot "${DIR}" "/tmp/.csi-lib/ld-linux-x86-64.so.2" \
-                    --library-path "/tmp/.csi-lib" "/tmp/.csi-lib/${ME}" "${@:1}"
+                exec chroot "${DIR}" "/var/tmp/.csi-lib/ld-linux-x86-64.so.2" \
+                    --library-path "/var/tmp/.csi-lib" "/var/tmp/.csi-lib/${ME}" "${@:1}"
                 ;;
         esac
         exec "${CONTAINER_BIN}" "${@:1}"
