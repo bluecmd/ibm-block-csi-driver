@@ -26,9 +26,23 @@ if [ -z "${RESOLVED}" ]; then
     exit 1
 fi
 
-# Ensure directories that host utilities expect to exist are present.
-# On immutable-rootfs OSes like Talos Linux, these may not be pre-created.
-mkdir -p "${DIR}/etc/multipath"
+# On immutable-rootfs OSes like Talos Linux, multipath/multipathd run inside
+# an extension service container with a writable rootfs. Enter that
+# container's mount namespace instead of chrooting to the host, where
+# /etc/multipath cannot be created on the read-only rootfs.
+if [ "${ME}" = "multipath" ] || [ "${ME}" = "multipathd" ]; then
+    MPATHD_PID=""
+    for pid in "${DIR}"/proc/[0-9]*; do
+        if [ "$(cat "${pid}/comm" 2>/dev/null)" = "multipathd" ]; then
+            MPATHD_PID=$(basename "${pid}")
+            break
+        fi
+    done
+    if [ -n "${MPATHD_PID}" ]; then
+        exec env -i PATH="${HOST_PATH}" nsenter --mount="${DIR}/proc/${MPATHD_PID}/ns/mnt" -- "${RESOLVED}" "${@:1}"
+    fi
+    # Fall through to chroot if multipathd is not running as a container.
+fi
 
 exec env -i PATH="${HOST_PATH}" chroot "${DIR}" "${RESOLVED}" "${@:1}"
 
