@@ -53,7 +53,7 @@ RUN chmod 755 ./entrypoint.sh
 # Install sg3_utils for sg_map/sg_inq - these can run directly in the
 # container with access to /dev, avoiding the need for host-side binaries
 # on minimal OSes like Talos Linux.
-RUN microdnf install -y sg3_utils && microdnf clean all
+RUN microdnf install -y sg3_utils util-linux && microdnf clean all
 
 RUN mkdir /chroot
 ADD chroot-host-wrapper.sh /chroot
