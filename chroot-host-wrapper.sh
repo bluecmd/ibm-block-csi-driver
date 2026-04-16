@@ -8,33 +8,6 @@ if [ ! -d "${DIR}" ]; then
     exit 1
 fi
 
-# sg_map and sg_inq from sg3_utils need access to host /dev but may not be
-# installed on minimal host OSes. If not found on the host, run the
-# container-bundled binary directly — the CSI node pod has host /dev
-# mounted, so the container binary can access SCSI device nodes.
-if [ "${ME}" = "sg_map" ] || [ "${ME}" = "sg_inq" ]; then
-    HOST_HAS_CMD=false
-    for d in /sbin /bin /usr/bin /usr/sbin /usr/local/sbin /usr/local/bin; do
-        if [ -x "${DIR}${d}/${ME}" ]; then
-            HOST_HAS_CMD=true
-            break
-        fi
-    done
-    if [ "${HOST_HAS_CMD}" = "false" ]; then
-        # Look for the real binary, skipping our own /chroot symlinks.
-        CONTAINER_BIN=""
-        for d in /usr/bin /usr/sbin /bin /sbin; do
-            if [ -x "${d}/${ME}" ]; then
-                CONTAINER_BIN="${d}/${ME}"
-                break
-            fi
-        done
-        if [ -n "${CONTAINER_BIN}" ]; then
-            exec "${CONTAINER_BIN}" "${@:1}"
-        fi
-    fi
-fi
-
 # Resolve the command path by searching the host filesystem from inside the
 # container. This avoids requiring /usr/bin/env to exist on the host, which is
 # not the case on minimal host OSes like Talos Linux.
@@ -48,8 +21,22 @@ for d in "${DIRS[@]}"; do
     fi
 done
 
+# If the command is not found on the host, fall back to the container-bundled
+# binary. This handles minimal host OSes like Talos Linux that may not ship
+# utilities such as blkid, sg_map, lsblk, etc. The CSI node pod has host /dev
+# mounted, so container binaries can access device nodes directly.
 if [ -z "${RESOLVED}" ]; then
-    echo "Could not find ${ME} in host filesystem (searched: ${HOST_PATH})" >&2
+    CONTAINER_BIN=""
+    for d in /usr/sbin /usr/bin /sbin /bin; do
+        if [ -x "${d}/${ME}" ]; then
+            CONTAINER_BIN="${d}/${ME}"
+            break
+        fi
+    done
+    if [ -n "${CONTAINER_BIN}" ]; then
+        exec "${CONTAINER_BIN}" "${@:1}"
+    fi
+    echo "Could not find ${ME} on host or in container" >&2
     exit 1
 fi
 
