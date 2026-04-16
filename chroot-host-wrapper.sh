@@ -35,11 +35,12 @@ if [ -z "${RESOLVED}" ]; then
     done
     if [ -n "${CONTAINER_BIN}" ]; then
         # Commands that operate on the host filesystem (mount, umount, mkfs,
-        # fsck, etc.) must run in the host's mount namespace, otherwise they
-        # can't see host mount points or device paths.
+        # fsck, etc.) must see host mount points and device paths. Enter the
+        # host's mount namespace but keep the container's root filesystem so
+        # the binary and its libraries are available.
         case "${ME}" in
-            mount|umount|mkfs.*|fsck|fsck.*|resize2fs|xfs_growfs|blockdev)
-                exec nsenter --mount="${DIR}/proc/1/ns/mnt" -- "${CONTAINER_BIN}" "${@:1}"
+            mount|umount|mkfs.*|fsck|fsck.*|resize2fs|xfs_growfs|blockdev|blkid|lsblk)
+                exec nsenter --mount="${DIR}/proc/1/ns/mnt" --root=/ -- "${CONTAINER_BIN}" "${@:1}"
                 ;;
         esac
         exec "${CONTAINER_BIN}" "${@:1}"
