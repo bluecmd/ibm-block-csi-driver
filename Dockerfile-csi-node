@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Tools stage — install filesystem utilities not available in UBI9 repos
+FROM quay.io/centos/centos:stream9 AS tools
+RUN dnf install -y e2fsprogs xfsprogs && dnf clean all
+
 # Build stage
 FROM golang:1.25 AS builder
 
@@ -56,12 +60,13 @@ RUN chmod 755 ./entrypoint.sh
 # Install host utilities for minimal OSes (e.g. Talos Linux) that don't
 # ship these tools. The chroot wrapper falls back to container binaries
 # when they're not found on the host.
-RUN microdnf install -y \
-        sg3_utils \
-        util-linux \
-        e2fsprogs \
-        xfsprogs \
-    && microdnf clean all
+RUN microdnf install -y sg3_utils util-linux && microdnf clean all
+# e2fsprogs/xfsprogs are not in UBI9 repos. Copy from a CentOS build stage.
+COPY --from=tools /usr/sbin/mkfs.ext3 /usr/sbin/mkfs.ext4 /usr/sbin/mkfs.xfs \
+                  /usr/sbin/fsck.ext3 /usr/sbin/fsck.ext4 /usr/sbin/mke2fs \
+                  /usr/sbin/resize2fs /usr/sbin/xfs_growfs /usr/sbin/
+COPY --from=tools /usr/lib64/libe2p.so.2 /usr/lib64/libext2fs.so.2 \
+                  /usr/lib64/libcom_err.so.2 /usr/lib64/
 
 RUN mkdir /chroot
 ADD chroot-host-wrapper.sh /chroot
