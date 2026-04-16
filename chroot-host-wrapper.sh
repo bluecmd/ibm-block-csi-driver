@@ -34,6 +34,14 @@ if [ -z "${RESOLVED}" ]; then
         fi
     done
     if [ -n "${CONTAINER_BIN}" ]; then
+        # Commands that operate on the host filesystem (mount, umount, mkfs,
+        # fsck, etc.) must run in the host's mount namespace, otherwise they
+        # can't see host mount points or device paths.
+        case "${ME}" in
+            mount|umount|mkfs.*|fsck|fsck.*|resize2fs|xfs_growfs|blockdev)
+                exec nsenter --mount="${DIR}/proc/1/ns/mnt" -- "${CONTAINER_BIN}" "${@:1}"
+                ;;
+        esac
         exec "${CONTAINER_BIN}" "${@:1}"
     fi
     echo "Could not find ${ME} on host or in container" >&2
