@@ -66,7 +66,15 @@ if [ "${ME}" = "multipath" ] || [ "${ME}" = "multipathd" ]; then
         fi
     done
     if [ -n "${MPATHD_PID}" ]; then
-        exec env -i PATH="${HOST_PATH}" nsenter --mount="${DIR}/proc/${MPATHD_PID}/ns/mnt" -- "${RESOLVED}" "${@:1}"
+        NSENTER="nsenter --mount=${DIR}/proc/${MPATHD_PID}/ns/mnt"
+        # The standalone multipath binary cannot access udev inside the
+        # container namespace. Redirect calls to multipathd reconfigure
+        # which works through the running daemon's udev connection.
+        if [ "${ME}" = "multipath" ] && [ $# -eq 0 ]; then
+            MULTIPATHD_BIN="${RESOLVED%multipath}multipathd"
+            exec env -i PATH="${HOST_PATH}" ${NSENTER} -- "${MULTIPATHD_BIN}" reconfigure
+        fi
+        exec env -i PATH="${HOST_PATH}" ${NSENTER} -- "${RESOLVED}" "${@:1}"
     fi
     # Fall through to chroot if multipathd is not running as a container.
 fi
