@@ -35,12 +35,19 @@ if [ -z "${RESOLVED}" ]; then
     done
     if [ -n "${CONTAINER_BIN}" ]; then
         # Commands that operate on the host filesystem (mount, umount, mkfs,
-        # fsck, etc.) must see host mount points and device paths. Enter the
-        # host's mount namespace but keep the container's root filesystem so
-        # the binary and its libraries are available.
+        # fsck, etc.) must run via chroot so they see host paths and devices.
+        # Copy the container binary and its libraries to the host, then
+        # chroot and run from there.
         case "${ME}" in
             mount|umount|mkfs.*|fsck|fsck.*|resize2fs|xfs_growfs|blockdev|blkid|lsblk)
-                exec nsenter --mount="${DIR}/proc/1/ns/mnt" --root=/ -- "${CONTAINER_BIN}" "${@:1}"
+                mkdir -p "${DIR}/tmp/.csi-bin"
+                cp -f "${CONTAINER_BIN}" "${DIR}/tmp/.csi-bin/${ME}"
+                # Copy dynamic libraries the binaries need
+                ldd "${CONTAINER_BIN}" 2>/dev/null | awk '/=>/ {print $3}' | while read -r lib; do
+                    [ -f "${lib}" ] && cp -n "${lib}" "${DIR}/tmp/.csi-bin/"
+                done
+                exec env -i PATH="${HOST_PATH}" LD_LIBRARY_PATH="/tmp/.csi-bin" \
+                    chroot "${DIR}" "/tmp/.csi-bin/${ME}" "${@:1}"
                 ;;
         esac
         exec "${CONTAINER_BIN}" "${@:1}"
