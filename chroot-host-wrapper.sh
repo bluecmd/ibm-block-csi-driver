@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-ME=`basename "$0"`
+ME=$(basename "$0")
 
 DIR="/host"   # The CSI node daemonset mount the / of the host into /host inside the container.
 if [ ! -d "${DIR}" ]; then
@@ -8,5 +8,23 @@ if [ ! -d "${DIR}" ]; then
     exit 1
 fi
 
-exec chroot $DIR /usr/bin/env -i PATH="/sbin:/bin:/usr/bin:/usr/sbin" ${ME} "${@:1}"
+# Resolve the command path by searching the host filesystem from inside the
+# container. This avoids requiring /usr/bin/env to exist on the host, which is
+# not the case on minimal host OSes like Talos Linux.
+HOST_PATH="/sbin:/bin:/usr/bin:/usr/sbin"
+RESOLVED=""
+IFS=':' read -ra DIRS <<< "${HOST_PATH}"
+for d in "${DIRS[@]}"; do
+    if [ -x "${DIR}${d}/${ME}" ]; then
+        RESOLVED="${d}/${ME}"
+        break
+    fi
+done
+
+if [ -z "${RESOLVED}" ]; then
+    echo "Could not find ${ME} in host filesystem (searched: ${HOST_PATH})" >&2
+    exit 1
+fi
+
+exec env -i PATH="${HOST_PATH}" chroot "${DIR}" "${RESOLVED}" "${@:1}"
 
