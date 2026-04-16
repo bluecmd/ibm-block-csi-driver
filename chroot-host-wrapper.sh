@@ -26,5 +26,9 @@ if [ -z "${RESOLVED}" ]; then
     exit 1
 fi
 
+# Ensure directories that host utilities expect to exist are present.
+# On immutable-rootfs OSes like Talos Linux, these may not be pre-created.
+mkdir -p "${DIR}/etc/multipath"
+
 exec env -i PATH="${HOST_PATH}" chroot "${DIR}" "${RESOLVED}" "${@:1}"
 
