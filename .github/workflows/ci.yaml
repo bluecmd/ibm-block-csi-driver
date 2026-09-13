@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  go-test:
+    name: Go unit tests (node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Install mockgen
+        run: go install github.com/golang/mock/mockgen@v1.6.0
+      - name: gofmt, go vet, go test
+        run: make test
+
+  go-build:
+    name: Go build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build node driver
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: make ibm-block-csi-driver
+
+  controllers:
+    name: Python lint and unit tests (controllers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build test image
+        run: docker build -f Dockerfile-controllers.test -t csi-controller-tests .
+      - name: pycodestyle
+        run: docker run --entrypoint ./controllers/scripts/pycodestyle.sh --rm csi-controller-tests
+      - name: pylint
+        run: docker run --entrypoint ./controllers/scripts/pylint.sh --rm csi-controller-tests
+      - name: Unit tests
+        run: |
+          mkdir -p build/reports && chmod 777 build/reports
+          docker run --entrypoint ./controllers/scripts/unitests.sh --rm \
+            -v "$PWD/build/reports:/driver/coverage:z" csi-controller-tests
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: controllers-test-reports
+          path: build/reports/
+          if-no-files-found: ignore
+
+  manifests:
+    name: Validate Kubernetes manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: kubeconform
+        run: ./scripts/run_yamlcheck.sh
