@@ -120,7 +120,7 @@ func winPublishContext() map[string]string {
 		PublishContextParamLun:          "10",
 		PublishContextParamConnectivity: "iscsi",
 		PublishContextParamArrayIqn:     winArrayIqn,
-		winArrayIqn:                     "fd00:7000::11,fd00:7000::17",
+		winArrayIqn:                     "[fd00:7000:0000:0000:0000:0000:0000:0011],[fd00:7000::17]:3260,10.0.0.5:3260",
 	}
 }
 
@@ -174,7 +174,7 @@ func TestWindowsNodeGetInfoWithoutInitiator(t *testing.T) {
 func TestWindowsNodeStageVolume(t *testing.T) {
 	rawDisk := `{"Number":3,"UniqueId":"` + winVolumeUuid + `","PartitionStyle":"RAW","IsOffline":true,"IsReadOnly":false,"IsBoot":false,"IsSystem":false,"Size":10737418240,"OperationalStatus":"Offline"}`
 	systemDisk := `{"Number":0,"UniqueId":"` + winVolumeUuid + `","PartitionStyle":"GPT","IsBoot":true,"IsSystem":true,"Size":10737418240}`
-	freshPartition := `{"PartitionNumber":2,"FileSystem":"NTFS","AccessPaths":["\\\\?\\Volume{39289ba9-4a9f-40fc-8121-35284a3443e0}\\"],"DriveLetter":"","Size":10720641024}`
+	freshPartition := `{"PartitionNumber":2,"FileSystem":"NTFS","AccessPaths":["\\\\?\\Volume{39289ba9-4a9f-40fc-8121-35284a3443e0}\\"],"DriveLetter":"\u0000","Size":10720641024}`
 	stagedPartition := `{"PartitionNumber":2,"FileSystem":"NTFS","AccessPaths":["` + strings.ReplaceAll(winStagingPath, `\`, `\\`) + `\\","\\\\?\\Volume{39289ba9}\\"],"DriveLetter":"","Size":10720641024}`
 	hostPartition := `{"PartitionNumber":2,"FileSystem":"NTFS","AccessPaths":["E:\\"],"DriveLetter":"E","Size":10720641024}`
 	refsPartition := `{"PartitionNumber":2,"FileSystem":"ReFS","AccessPaths":[],"DriveLetter":"","Size":10720641024}`
@@ -385,7 +385,8 @@ func TestWindowsNodeStageVolume(t *testing.T) {
 			}
 			if tc.expRescans > 0 {
 				login := ps.last("Connect-IscsiTarget")
-				if !strings.Contains(login, "'"+winArrayIqn+"'") || !strings.Contains(login, "'fd00:7000::11'") || !strings.Contains(login, "'fd00:7000::17'") {
+				if !strings.Contains(login, "'"+winArrayIqn+"'") || !strings.Contains(login, "'fd00:7000:0000:0000:0000:0000:0000:0011'") ||
+					!strings.Contains(login, "'fd00:7000::17'") || !strings.Contains(login, "'10.0.0.5'") || strings.Contains(login, "[") {
 					t.Fatalf("login script does not target every portal: %s", login)
 				}
 				if find := ps.last("Get-Disk | Where-Object"); !strings.Contains(find, "'"+winVolumeUuid+"'") {

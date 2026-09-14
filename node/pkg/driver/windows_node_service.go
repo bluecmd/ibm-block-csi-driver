@@ -112,6 +112,24 @@ type windowsPartition struct {
 	Size            int64    `json:"Size"`
 }
 
+// portalAddress returns the bare address of an iSCSI target portal. The
+// publish context carries IPv6 addresses in brackets, optionally with a
+// port, in the form iscsiadm accepts; the Windows iSCSI cmdlets want the
+// address alone.
+func portalAddress(ip string) string {
+	ip = strings.TrimSpace(ip)
+	if strings.HasPrefix(ip, "[") {
+		if end := strings.Index(ip, "]"); end > 0 {
+			return ip[1:end]
+		}
+	}
+	if strings.Count(ip, ":") == 1 {
+		// IPv4 with a port
+		return ip[:strings.Index(ip, ":")]
+	}
+	return ip
+}
+
 // psQuote returns s as a single-quoted PowerShell string literal.
 func psQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
@@ -174,7 +192,7 @@ func (d *WindowsNodeService) ensureIscsiLogin(ipsByArrayIqn map[string][]string)
 	var pairs []string
 	for iqn, ips := range ipsByArrayIqn {
 		for _, ip := range ips {
-			ip = strings.TrimSpace(ip)
+			ip = portalAddress(ip)
 			if ip == "" {
 				continue
 			}
@@ -289,6 +307,7 @@ func (d *WindowsNodeService) prepareDisk(disk *windowsDisk, fsType string) (*win
 	if err := decodeJSONList(out, &partitions); err != nil || len(partitions) != 1 {
 		return nil, fmt.Errorf("could not parse partition output %q: %v", out, err)
 	}
+	partitions[0].normalize()
 	return &partitions[0], nil
 }
 
@@ -309,7 +328,17 @@ func (d *WindowsNodeService) getDataPartition(diskNumber int) (*windowsPartition
 	if len(partitions) == 0 {
 		return nil, nil
 	}
+	partitions[0].normalize()
 	return &partitions[0], nil
+}
+
+// normalize cleans up PowerShell's representation of absent values: a
+// partition without a drive letter reports the NUL character.
+func (p *windowsPartition) normalize() {
+	p.DriveLetter = strings.Trim(p.DriveLetter, "\x00 ")
+	if p.DriveLetter != "" && !(p.DriveLetter[0] >= 'A' && p.DriveLetter[0] <= 'Z' || p.DriveLetter[0] >= 'a' && p.DriveLetter[0] <= 'z') {
+		p.DriveLetter = ""
+	}
 }
 
 func (p *windowsPartition) hasAccessPath(path string) bool {
