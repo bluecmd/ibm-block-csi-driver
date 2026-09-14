@@ -20,22 +20,21 @@ import (
 	"context"
 	"io/ioutil"
 	"net"
+	"os"
+	"path/filepath"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/ibm/ibm-block-csi-driver/node/logger"
 	"github.com/ibm/ibm-block-csi-driver/node/util"
 
-	"github.com/ibm/ibm-block-csi-driver/node/pkg/driver/device_connectivity"
-	"github.com/ibm/ibm-block-csi-driver/node/pkg/driver/executer"
-	mountwrapper "github.com/ibm/ibm-block-csi-driver/node/pkg/driver/mount"
 	"google.golang.org/grpc"
 	yaml "gopkg.in/yaml.v2"
-	mount "k8s.io/mount-utils"
-	"k8s.io/utils/exec"
 )
 
 type Driver struct {
-	NodeService
+	// NodeServer is the OS-specific node service, see newNodeService in
+	// node_service_<os>.go.
+	csi.NodeServer
 	srv      *grpc.Server
 	endpoint string
 	config   ConfigFile
@@ -52,23 +51,15 @@ func NewDriver(endpoint string, configFilePath string, hostname string, max_invo
 	logger.Infof("Max invocations: %d", max_invocations)
 	logger.Infof("Clean scsi device enabled: %v", clean_scsi_device)
 
-	mounter := &mount.SafeFormatAndMount{
-		Interface: mountwrapper.New(""),
-		Exec:      exec.New(),
+	nodeService, err := newNodeService(configFile, hostname, max_invocations, clean_scsi_device)
+	if err != nil {
+		return nil, err
 	}
 
-	syncLock := NewSyncLock(max_invocations, clean_scsi_device)
-	executer := &executer.Executer{}
-	osDeviceConnectivityMapping := map[string]device_connectivity.OsDeviceConnectivityInterface{
-		configFile.Connectivity_type.Nvme_over_fc: device_connectivity.NewOsDeviceConnectivityNvmeOFc(executer, clean_scsi_device),
-		configFile.Connectivity_type.Fc:           device_connectivity.NewOsDeviceConnectivityFc(executer, clean_scsi_device),
-		configFile.Connectivity_type.Iscsi:        device_connectivity.NewOsDeviceConnectivityIscsi(executer, clean_scsi_device),
-	}
-	osDeviceConnectivityHelper := device_connectivity.NewOsDeviceConnectivityHelperScsiGeneric(executer, clean_scsi_device)
 	return &Driver{
-		endpoint:    endpoint,
-		config:      configFile,
-		NodeService: NewNodeService(configFile, hostname, *NewNodeUtils(executer, mounter, configFile, osDeviceConnectivityHelper), osDeviceConnectivityMapping, osDeviceConnectivityHelper, executer, mounter, syncLock),
+		endpoint:   endpoint,
+		config:     configFile,
+		NodeServer: nodeService,
 	}, nil
 }
 
@@ -76,6 +67,16 @@ func (d *Driver) Run() error {
 	scheme, addr, err := util.ParseEndpoint(d.endpoint)
 	if err != nil {
 		return err
+	}
+
+	if scheme == "unix" {
+		// The kubelet creates its plugins directory but not the
+		// per-driver directory below it. The Linux DaemonSet mounts it
+		// with DirectoryOrCreate; the Windows HostProcess pod has no
+		// volumes, so create it here.
+		if err := os.MkdirAll(filepath.Dir(addr), 0755); err != nil {
+			return err
+		}
 	}
 
 	listener, err := net.Listen(scheme, addr)
@@ -163,6 +164,15 @@ func ReadConfigFile(configFilePath string) (ConfigFile, error) {
 	} else {
 		logger.Debugf("Config file environment variable %s=%s", EnvNameDriverConfFile, configYamlPath)
 		logger.Info(logger.GetLevel())
+	}
+
+	if _, statErr := os.Stat(configYamlPath); statErr != nil && !filepath.IsAbs(configYamlPath) {
+		// A relative config path that does not resolve from the working
+		// directory is looked up next to the executable instead. The
+		// Windows HostProcess image ships config.yaml alongside the binary.
+		if executable, execErr := os.Executable(); execErr == nil {
+			configYamlPath = filepath.Join(filepath.Dir(executable), configYamlPath)
+		}
 	}
 
 	yamlFile, err := ioutil.ReadFile(configYamlPath)

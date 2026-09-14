@@ -32,6 +32,14 @@ jobs:
           - name: host-definer
             dockerfile: Dockerfile-csi-host-definer
             repository: ibm-block-csi-host-definer
+          - name: node-windows
+            dockerfile: Dockerfile-csi-node-windows
+            repository: ibm-block-csi-driver-node-windows
+            platforms: windows/amd64
+            # Layers restored from the GHA cache lose the Files/ and Hives/
+            # structure Windows layers need and fail to import on the node
+            # with "The configuration registry database is corrupt".
+            nocache: true
     steps:
       - uses: actions/checkout@v6
 
@@ -62,12 +70,12 @@ jobs:
         with:
           context: .
           file: ${{ matrix.image.dockerfile }}
-          platforms: ${{ env.PLATFORMS }}
+          platforms: ${{ matrix.image.platforms || env.PLATFORMS }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
             BUILD_NUMBER=${{ github.run_number }}
-          cache-from: type=gha,scope=${{ matrix.image.name }}
-          cache-to: type=gha,scope=${{ matrix.image.name }},mode=max
+          cache-from: ${{ !matrix.image.nocache && format('type=gha,scope={0}', matrix.image.name) || '' }}
+          cache-to: ${{ !matrix.image.nocache && format('type=gha,scope={0},mode=max', matrix.image.name) || '' }}

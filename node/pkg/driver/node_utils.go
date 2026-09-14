@@ -29,7 +29,6 @@ import (
 	"strings"
 
 	"github.com/ibm/ibm-block-csi-driver/node/pkg/driver/device_connectivity"
-	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 
@@ -642,43 +641,6 @@ func (n NodeUtils) UpdateNodeInitiatorsAnnotation(ctx context.Context, nodeName 
 	}
 
 	return nil
-}
-
-func (n NodeUtils) IsBlock(devicePath string) (bool, error) {
-	var stat unix.Stat_t
-	err := unix.Stat(devicePath, &stat)
-	if err != nil {
-		return false, err
-	}
-	return (stat.Mode & unix.S_IFMT) == unix.S_IFBLK, nil
-}
-
-func (d NodeUtils) GetFileSystemVolumeStats(path string) (VolumeStatistics, error) {
-	statfs := &unix.Statfs_t{}
-	err := unix.Statfs(path, statfs)
-	if err != nil {
-		return VolumeStatistics{}, err
-	}
-
-	availableBytes := int64(statfs.Bavail) * int64(statfs.Bsize)
-	totalBytes := int64(statfs.Blocks) * int64(statfs.Bsize)
-	usedBytes := (int64(statfs.Blocks) - int64(statfs.Bfree)) * int64(statfs.Bsize)
-
-	totalInodes := int64(statfs.Files)
-	availableInodes := int64(statfs.Ffree)
-	usedInodes := totalInodes - availableInodes
-
-	volumeStats := VolumeStatistics{
-		AvailableBytes: availableBytes,
-		TotalBytes:     totalBytes,
-		UsedBytes:      usedBytes,
-
-		AvailableInodes: availableInodes,
-		TotalInodes:     totalInodes,
-		UsedInodes:      usedInodes,
-	}
-
-	return volumeStats, nil
 }
 
 func (d NodeUtils) GetBlockVolumeStats(volumeId string) (VolumeStatistics, error) {

@@ -1,0 +1,12 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^https?://(www\\.)?ibm\\.com/",
+      "_comment": "ibm.com answers 403 to the link checker"
+    },
+    {
+      "pattern": "changelog_1\\.14\\.0\\.md$",
+      "_comment": "upstream docs link to a changelog that does not exist yet"
+    }
+  ]
+}
