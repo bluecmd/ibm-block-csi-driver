@@ -200,6 +200,7 @@ func TestWindowsNodeStageVolume(t *testing.T) {
 				{contains: "Get-Disk | Where-Object", out: rawDisk},
 				{contains: "Initialize-Disk", out: freshPartition},
 				{contains: "Add-PartitionAccessPath", out: ""},
+				{contains: "icacls.exe", out: ""},
 			},
 			expCode:       codes.OK,
 			expAccessPath: true,
@@ -215,6 +216,7 @@ func TestWindowsNodeStageVolume(t *testing.T) {
 				{contains: "Get-Disk | Where-Object", out: rawDisk},
 				{contains: "Initialize-Disk", out: freshPartition},
 				{contains: "Add-PartitionAccessPath", out: ""},
+				{contains: "icacls.exe", out: ""},
 			},
 			expCode:       codes.OK,
 			expAccessPath: true,
@@ -230,6 +232,7 @@ func TestWindowsNodeStageVolume(t *testing.T) {
 				{contains: "Get-Disk | Where-Object", out: rawDisk},
 				{contains: "Initialize-Disk", out: freshPartition},
 				{contains: "Add-PartitionAccessPath", out: ""},
+				{contains: "icacls.exe", out: ""},
 			},
 			expCode:       codes.OK,
 			expAccessPath: true,
@@ -246,6 +249,7 @@ func TestWindowsNodeStageVolume(t *testing.T) {
 				{contains: "Get-Disk | Where-Object", out: rawDisk},
 				{contains: "Initialize-Disk", out: freshPartition},
 				{contains: "Add-PartitionAccessPath", out: ""},
+				{contains: "icacls.exe", out: ""},
 			},
 			expCode:       codes.OK,
 			expAccessPath: true,
@@ -385,7 +389,7 @@ func TestWindowsNodeStageVolume(t *testing.T) {
 			}
 			if tc.expRescans > 0 {
 				login := ps.last("Connect-IscsiTarget")
-				if !strings.Contains(login, "'"+winArrayIqn+"'") || !strings.Contains(login, "'fd00:7000:0000:0000:0000:0000:0000:0011'") ||
+				if !strings.Contains(login, "'"+winArrayIqn+"'") || !strings.Contains(login, "'fd00:7000::11'") ||
 					!strings.Contains(login, "'fd00:7000::17'") || !strings.Contains(login, "'10.0.0.5'") || strings.Contains(login, "[") {
 					t.Fatalf("login script does not target every portal: %s", login)
 				}
@@ -400,6 +404,9 @@ func TestWindowsNodeStageVolume(t *testing.T) {
 				}
 				if !strings.Contains(ps.last("Initialize-Disk"), "Format-Volume -FileSystem NTFS") {
 					t.Fatalf("prepare script does not format NTFS: %s", ps.last("Initialize-Disk"))
+				}
+				if acl := ps.last("icacls.exe"); !strings.Contains(acl, "'"+winStagingPath+`\' /grant '*S-1-5-11:(OI)(CI)M'`) {
+					t.Fatalf("unexpected access grant script: %s", acl)
 				}
 			} else if mountScript != "" {
 				t.Fatalf("did not expect an access path to be added: %s", mountScript)

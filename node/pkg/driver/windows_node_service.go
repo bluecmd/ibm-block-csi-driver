@@ -25,6 +25,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -120,12 +121,16 @@ func portalAddress(ip string) string {
 	ip = strings.TrimSpace(ip)
 	if strings.HasPrefix(ip, "[") {
 		if end := strings.Index(ip, "]"); end > 0 {
-			return ip[1:end]
+			ip = ip[1:end]
 		}
-	}
-	if strings.Count(ip, ":") == 1 {
+	} else if strings.Count(ip, ":") == 1 {
 		// IPv4 with a port
-		return ip[:strings.Index(ip, ":")]
+		ip = ip[:strings.Index(ip, ":")]
+	}
+	// Windows stores portals in canonical form (fd00:7000::11, not the
+	// expanded spelling the array reports), so normalise for lookups.
+	if parsed := net.ParseIP(ip); parsed != nil {
+		return parsed.String()
 	}
 	return ip
 }
@@ -358,6 +363,17 @@ func (d *WindowsNodeService) addAccessPath(diskNumber int, partitionNumber int, 
 	return err
 }
 
+// grantVolumeAccess lets Authenticated Users (SID S-1-5-11) modify the
+// volume. A freshly formatted NTFS root only lets administrators create
+// files, and Windows containers commonly run as ContainerUser. The kubelet
+// applies no fsGroup on Windows, so the node plugin does the equivalent.
+func (d *WindowsNodeService) grantVolumeAccess(path string) error {
+	script := fmt.Sprintf("& icacls.exe %s /grant '*S-1-5-11:(OI)(CI)M' | Out-Null\n"+
+		"if ($LASTEXITCODE -ne 0) { throw \"icacls failed with exit code $LASTEXITCODE\" }", psQuote(accessPath(path)))
+	_, err := d.runPowershell(script)
+	return err
+}
+
 // releaseDisk removes the staging access path from the disk and, once no
 // partition on it is reachable through a path any more, takes the disk
 // offline so the array can safely unmap it. This is the Windows counterpart
@@ -562,6 +578,9 @@ func (d *WindowsNodeService) NodeStageVolume(ctx context.Context, req *csi.NodeS
 	}
 
 	if err := d.addAccessPath(disk.Number, partition.PartitionNumber, stagingPath); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if err := d.grantVolumeAccess(stagingPath); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
