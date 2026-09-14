@@ -346,6 +346,17 @@ func (p *windowsPartition) normalize() {
 	}
 }
 
+// volumeGuidPath returns the partition's \\?\Volume{...}\ access path,
+// which addresses the volume independently of any mount point.
+func (p *windowsPartition) volumeGuidPath() (string, bool) {
+	for _, ap := range p.AccessPaths {
+		if strings.HasPrefix(strings.ToLower(ap), `\\?\volume{`) {
+			return ap, true
+		}
+	}
+	return "", false
+}
+
 func (p *windowsPartition) hasAccessPath(path string) bool {
 	want := strings.ToLower(accessPath(path))
 	for _, ap := range p.AccessPaths {
@@ -367,9 +378,13 @@ func (d *WindowsNodeService) addAccessPath(diskNumber int, partitionNumber int, 
 // volume. A freshly formatted NTFS root only lets administrators create
 // files, and Windows containers commonly run as ContainerUser. The kubelet
 // applies no fsGroup on Windows, so the node plugin does the equivalent.
-func (d *WindowsNodeService) grantVolumeAccess(path string) error {
+//
+// The grant goes through the volume GUID path: icacls on a mount point
+// path edits the junction directory on the parent volume, not the mounted
+// volume's root.
+func (d *WindowsNodeService) grantVolumeAccess(volumePath string) error {
 	script := fmt.Sprintf("& icacls.exe %s /grant '*S-1-5-11:(OI)(CI)M' | Out-Null\n"+
-		"if ($LASTEXITCODE -ne 0) { throw \"icacls failed with exit code $LASTEXITCODE\" }", psQuote(accessPath(path)))
+		"if ($LASTEXITCODE -ne 0) { throw \"icacls failed with exit code $LASTEXITCODE\" }", psQuote(volumePath))
 	_, err := d.runPowershell(script)
 	return err
 }
@@ -580,7 +595,12 @@ func (d *WindowsNodeService) NodeStageVolume(ctx context.Context, req *csi.NodeS
 	if err := d.addAccessPath(disk.Number, partition.PartitionNumber, stagingPath); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	if err := d.grantVolumeAccess(stagingPath); err != nil {
+	volumePath, ok := partition.volumeGuidPath()
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "Partition %d on disk %d has no volume GUID path: %v",
+			partition.PartitionNumber, disk.Number, partition.AccessPaths)
+	}
+	if err := d.grantVolumeAccess(volumePath); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
