@@ -29,6 +29,17 @@ import (
 )
 
 func ParseEndpoint(endpoint string) (string, string, error) {
+	if runtime.GOOS == "windows" && strings.HasPrefix(strings.ToLower(endpoint), "unix://") {
+		// A Windows socket path keeps its drive letter, e.g.
+		// unix://C:\var\lib\kubelet\plugins\block.csi.ibm.com\csi.sock,
+		// which url.Parse rejects as a host with an invalid port.
+		addr := filepath.Clean(endpoint[len("unix://"):])
+		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
+			return "", "", fmt.Errorf("could not remove unix domain socket %q: %v", addr, err)
+		}
+		return "unix", addr, nil
+	}
+
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return "", "", fmt.Errorf("could not parse endpoint: %v", err)
@@ -40,13 +51,7 @@ func ParseEndpoint(endpoint string) (string, string, error) {
 	switch scheme {
 	case "tcp":
 	case "unix":
-		if runtime.GOOS == "windows" {
-			// A Windows socket path keeps its drive letter, e.g.
-			// unix://C:\var\lib\kubelet\plugins\block.csi.ibm.com\csi.sock
-			addr = filepath.Clean(strings.TrimPrefix(endpoint, scheme+"://"))
-		} else {
-			addr = path.Join("/", addr)
-		}
+		addr = path.Join("/", addr)
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
 			return "", "", fmt.Errorf("could not remove unix domain socket %q: %v", addr, err)
 		}
