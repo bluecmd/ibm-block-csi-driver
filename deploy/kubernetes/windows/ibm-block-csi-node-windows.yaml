@@ -1,0 +1,124 @@
+# Node plugin for Windows worker nodes.
+#
+# Runs as a HostProcess pod: the containers execute directly on the host with
+# the host's PowerShell, iSCSI initiator and storage stack, so no volumes are
+# mounted and all paths below are host paths.
+#
+# Adjust KUBELET_DIR-derived paths if the kubelet runs with a non-default
+# --root-dir (the default is C:\var\lib\kubelet). The service account is the
+# one the IBM operator creates for the Linux node plugin; the Windows plugin
+# needs the same permissions (get/patch nodes).
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ibm-block-csi-node-windows
+  namespace: ibm-block-csi
+  labels:
+    app.kubernetes.io/component: csi-node-windows
+    app.kubernetes.io/name: ibm-block-csi-driver
+    csi: ibm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: csi-node-windows
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: csi-node-windows
+        app.kubernetes.io/name: ibm-block-csi-driver
+        csi: ibm
+    spec:
+      nodeSelector:
+        kubernetes.io/os: windows
+      tolerations:
+        - key: os
+          operator: Equal
+          value: windows
+          effect: NoSchedule
+      serviceAccountName: ibm-block-csi-node-sa
+      hostNetwork: true
+      securityContext:
+        windowsOptions:
+          hostProcess: true
+          runAsUserName: 'NT AUTHORITY\SYSTEM'
+      containers:
+        - name: ibm-block-csi-node
+          image: ghcr.io/bluecmd/ibm-block-csi-driver-node-windows:main
+          imagePullPolicy: IfNotPresent
+          command:
+            - ibm-block-csi-node-driver.exe
+          args:
+            - --csi-endpoint=$(CSI_ENDPOINT)
+            - --hostname=$(KUBE_NODE_NAME)
+            - --config-file-path=config.yaml
+            - --loglevel=$(CSI_LOGLEVEL)
+          env:
+            - name: CSI_ENDPOINT
+              value: unix://C:\var\lib\kubelet\plugins\block.csi.ibm.com\csi.sock
+            - name: CSI_LOGLEVEL
+              value: trace
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - name: healthz
+              containerPort: 9808
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 40m
+              memory: 40Mi
+            limits:
+              cpu: "1"
+              memory: 500Mi
+        - name: csi-node-driver-registrar
+          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.14.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - csi-node-driver-registrar.exe
+          args:
+            - --csi-address=$(ADDRESS)
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --plugin-registration-path=$(PLUGIN_REG_DIR)
+            - --v=5
+          env:
+            - name: ADDRESS
+              value: unix://C:\var\lib\kubelet\plugins\block.csi.ibm.com\csi.sock
+            - name: DRIVER_REG_SOCK_PATH
+              value: C:\var\lib\kubelet\plugins\block.csi.ibm.com\csi.sock
+            - name: PLUGIN_REG_DIR
+              value: C:\var\lib\kubelet\plugins_registry\
+          resources:
+            requests:
+              cpu: 20m
+              memory: 20Mi
+            limits:
+              cpu: 200m
+              memory: 200Mi
+        - name: livenessprobe
+          image: registry.k8s.io/sig-storage/livenessprobe:v2.16.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - livenessprobe.exe
+          args:
+            - --csi-address=$(ADDRESS)
+            - --health-port=9808
+          env:
+            - name: ADDRESS
+              value: unix://C:\var\lib\kubelet\plugins\block.csi.ibm.com\csi.sock
+          resources:
+            requests:
+              cpu: 20m
+              memory: 20Mi
+            limits:
+              cpu: 200m
+              memory: 200Mi

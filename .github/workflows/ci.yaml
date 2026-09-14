@@ -32,6 +32,7 @@ jobs:
         include:
           - { goos: linux, goarch: amd64 }
           - { goos: linux, goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -41,7 +42,12 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-        run: make ibm-block-csi-driver
+        run: |
+          if [ "$GOOS" = windows ]; then
+            make ibm-block-csi-driver-windows
+          else
+            make ibm-block-csi-driver
+          fi
 
   controllers:
     name: Python lint and unit tests (controllers)

@@ -44,12 +44,18 @@ ibm-block-csi-driver:
 	mkdir -p bin
 	CGO_ENABLED=0 GOOS=linux go build -ldflags  ${LDFLAGS} -o bin/ibm-block-csi-node-driver ./node/cmd
 
+.PHONY: ibm-block-csi-driver-windows
+ibm-block-csi-driver-windows:
+	mkdir -p bin
+	CGO_ENABLED=0 GOOS=windows go build -ldflags  ${LDFLAGS} -o bin/ibm-block-csi-node-driver.exe ./node/cmd
+
 .PHONY: test
 test:
 	if [ -d ./node/mocks ]; then rm -rf ./node/mocks; fi
 	go generate ./...
 	$(gofmt-test)
 	go vet -c=1 ./node/...
+	GOOS=windows go vet -c=1 ./node/cmd/ ./node/pkg/driver/ ./node/pkg/driver/mount/
 	go test ${GO_TEST_FLAGS} ./node/...
 
 .PHONY: test-xunit

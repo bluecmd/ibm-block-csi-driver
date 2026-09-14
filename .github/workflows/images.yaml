@@ -32,6 +32,10 @@ jobs:
           - name: host-definer
             dockerfile: Dockerfile-csi-host-definer
             repository: ibm-block-csi-host-definer
+          - name: node-windows
+            dockerfile: Dockerfile-csi-node-windows
+            repository: ibm-block-csi-driver-node-windows
+            platforms: windows/amd64
     steps:
       - uses: actions/checkout@v6
 
@@ -62,7 +66,7 @@ jobs:
         with:
           context: .
           file: ${{ matrix.image.dockerfile }}
-          platforms: ${{ env.PLATFORMS }}
+          platforms: ${{ matrix.image.platforms || env.PLATFORMS }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

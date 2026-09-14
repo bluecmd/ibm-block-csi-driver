@@ -1,0 +1,56 @@
+# Copyright 2026 Christian Svensson.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Node image for Windows worker nodes. It is meant to run as a HostProcess
+# container, so the image only carries the driver binary and its config; the
+# host's PowerShell and storage stack are used directly. Build it with
+# buildx from a Linux host: docker buildx build --platform windows/amd64 ...
+
+# Build stage: cross-compile on the build host
+FROM --platform=$BUILDPLATFORM golang:1.25.14 AS builder
+
+WORKDIR /go/src/github.com/ibm/ibm-block-csi-driver
+ENV GO111MODULE=on
+
+# Populate the module cache based on the go.{mod,sum} files.
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
+COPY . .
+ARG TARGETARCH
+RUN GOARCH=${TARGETARCH} make ibm-block-csi-driver-windows
+
+# Final stage
+FROM mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:v1.0.0
+
+ARG VERSION=1.14.0
+ARG BUILD_NUMBER=0
+
+LABEL name="IBM block storage CSI driver node (Windows)" \
+      vendor="bluecmd" \
+      maintainer="bluecmd" \
+      version=$VERSION \
+      release=$BUILD_NUMBER \
+      summary="The Windows node component of the IBM block storage CSI driver fork" \
+      description="The IBM block storage CSI driver enables container orchestrators, such as Kubernetes and OpenShift, to manage the life-cycle of persistent storage." \
+      io.k8s.display-name="IBM block storage CSI driver node (Windows)" \
+      io.k8s.description="The IBM block storage CSI driver enables container orchestrators, such as Kubernetes and OpenShift, to manage the life-cycle of persistent storage." \
+      io.openshift.tags=ibm,csi,ibm-block-csi-driver,ibm-block-csi-node,windows
+
+COPY --from=builder /go/src/github.com/ibm/ibm-block-csi-driver/common/config.yaml /config.yaml
+COPY --from=builder /go/src/github.com/ibm/ibm-block-csi-driver/bin/ibm-block-csi-node-driver.exe /ibm-block-csi-node-driver.exe
+COPY ./LICENSE /licenses/
+
+ENTRYPOINT ["/ibm-block-csi-node-driver.exe"]
