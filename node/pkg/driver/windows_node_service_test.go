@@ -221,6 +221,21 @@ func TestWindowsNodeStageVolume(t *testing.T) {
 			expRescans:    1,
 		},
 		{
+			name:          "provisioner default ext4 means ntfs on windows",
+			fsType:        "ext4",
+			stagingExists: true,
+			responses: []fakeResponse{
+				{contains: "Connect-IscsiTarget", out: ""},
+				{contains: "Update-HostStorageCache", out: ""},
+				{contains: "Get-Disk | Where-Object", out: rawDisk},
+				{contains: "Initialize-Disk", out: freshPartition},
+				{contains: "Add-PartitionAccessPath", out: ""},
+			},
+			expCode:       codes.OK,
+			expAccessPath: true,
+			expRescans:    1,
+		},
+		{
 			name:          "disk appears after a few rescans",
 			fsType:        "ntfs",
 			stagingExists: true,

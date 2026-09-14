@@ -375,9 +375,16 @@ func (d *WindowsNodeService) expandPartition(diskNumber int) (int64, error) {
 	return size, nil
 }
 
+// resolveWindowsFsType maps the requested file system to what the node
+// formats. The external provisioner fills in ext4 whenever a StorageClass
+// does not name a file system, so like other Windows CSI drivers that
+// Linux default is treated as "use the platform default", NTFS.
 func resolveWindowsFsType(requested string) (string, error) {
 	switch strings.ToLower(requested) {
 	case "", windowsDefaultFsType:
+		return windowsNtfs, nil
+	case "ext4":
+		logger.Warningf("Requested fs_type ext4 is the provisioner's Linux default, using %s on this Windows node", windowsNtfs)
 		return windowsNtfs, nil
 	default:
 		return "", fmt.Errorf("file system type %q is not supported on Windows nodes, use %s", requested, windowsDefaultFsType)

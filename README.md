@@ -73,8 +73,11 @@ images, and no volumes are mounted. Requirements on the node:
 * The kubelet's `--root-dir` must match the paths in the manifest (default
   `C:\var\lib\kubelet`).
 
-Volumes for Windows pods need a StorageClass with
-`csi.storage.k8s.io/fstype: ntfs`. The node plugin identifies the disk by
+Volumes for Windows pods are formatted NTFS. A StorageClass may say so with
+`csi.storage.k8s.io/fstype: ntfs` (this needs the fork's controller image,
+upstream's rejects it); a StorageClass without a file system type also
+works, because the `ext4` the provisioner then fills in is treated as the
+platform default on Windows nodes. The node plugin identifies the disk by
 the array volume UID, which Windows exposes as the disk's `UniqueId`,
 brings it online, creates a GPT data partition and formats it NTFS on first
 use, and mounts it at the kubelet's staging path as a volume mount point.
