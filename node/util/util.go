@@ -40,7 +40,13 @@ func ParseEndpoint(endpoint string) (string, string, error) {
 	switch scheme {
 	case "tcp":
 	case "unix":
-		addr = path.Join("/", addr)
+		if runtime.GOOS == "windows" {
+			// A Windows socket path keeps its drive letter, e.g.
+			// unix://C:\var\lib\kubelet\plugins\block.csi.ibm.com\csi.sock
+			addr = filepath.Clean(strings.TrimPrefix(endpoint, scheme+"://"))
+		} else {
+			addr = path.Join("/", addr)
+		}
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
 			return "", "", fmt.Errorf("could not remove unix domain socket %q: %v", addr, err)
 		}
