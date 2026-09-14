@@ -3,7 +3,7 @@ from csi_general import csi_pb2
 from controllers.common.settings import ALL_ARRAY_TYPES
 from controllers.common.config import config
 
-SUPPORTED_FS_TYPES = ["ext4", "xfs"]
+SUPPORTED_FS_TYPES = ["ext4", "xfs", "ntfs"]
 
 access_mode = csi_pb2.VolumeCapability.AccessMode
 SUPPORTED_ACCESS_MODE = [access_mode.SINGLE_NODE_WRITER, access_mode.MULTI_NODE_MULTI_WRITER]

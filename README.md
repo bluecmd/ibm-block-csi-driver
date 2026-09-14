@@ -22,9 +22,10 @@ For compatibility, prerequisites, release notes, and other user information, see
 
 * **Windows worker nodes (in progress).** A Windows build of the node plugin
   that runs as a HostProcess pod and drives the host's iSCSI initiator and
-  storage stack through PowerShell. It currently registers with the kubelet
-  and reports the node's iSCSI initiator; volume staging and publishing are
-  not implemented yet. See [Windows nodes](#windows-nodes).
+  storage stack through PowerShell. It supports iSCSI-attached NTFS volumes
+  in mount mode, including online expansion and volume stats. Raw block
+  volumes, Fibre Channel and NVMe are not supported on Windows. See
+  [Windows nodes](#windows-nodes).
 
 ### Planned
 
@@ -71,6 +72,15 @@ images, and no volumes are mounted. Requirements on the node:
   the Multipath-IO feature with iSCSI devices claimed by MPIO.
 * The kubelet's `--root-dir` must match the paths in the manifest (default
   `C:\var\lib\kubelet`).
+
+Volumes for Windows pods need a StorageClass with
+`csi.storage.k8s.io/fstype: ntfs`. The node plugin identifies the disk by
+the array volume UID, which Windows exposes as the disk's `UniqueId`,
+brings it online, creates a GPT data partition and formats it NTFS on first
+use, and mounts it at the kubelet's staging path as a volume mount point.
+Pod mounts are directory symlinks to the staging path, as with other
+Windows CSI drivers. On unstage the disk is taken offline so the array can
+unmap it safely.
 
 ### Continuous integration
 
