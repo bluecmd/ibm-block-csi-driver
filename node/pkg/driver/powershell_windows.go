@@ -39,12 +39,6 @@ const (
 	powershellPreamble = "$ProgressPreference = 'SilentlyContinue'; $ErrorActionPreference = 'Stop'; "
 )
 
-// PowershellRunner runs a PowerShell script on the host and returns its
-// standard output with surrounding whitespace removed.
-type PowershellRunner interface {
-	Run(script string) (string, error)
-}
-
 // Powershell runs scripts with the host's Windows PowerShell.
 type Powershell struct{}
 
