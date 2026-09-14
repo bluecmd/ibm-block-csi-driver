@@ -1,5 +1,11 @@
 {
   "ignorePatterns": [
-    { "pattern": "^https://www\\.ibm\\.com/docs/" }
+    {
+      "pattern": "^https://www\\.ibm\\.com/docs/"
+    },
+    {
+      "pattern": "changelog_1\\.14\\.0\\.md$",
+      "_comment": "upstream docs link to a changelog that does not exist yet"
+    }
   ]
 }
