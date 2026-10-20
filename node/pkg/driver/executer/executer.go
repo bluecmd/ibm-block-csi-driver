@@ -53,6 +53,15 @@ func (e *Executer) ExecuteWithTimeoutSilently(mSeconds int, command string, args
 	// Create the command with our context
 	cmd := exec.CommandContext(ctx, command, args...)
 
+	// On timeout, kill the whole process group, not just the direct child.
+	// The chroot/nsenter wrapper scripts spawn subshells; killing only the
+	// wrapper used to orphan those onto this process (PID 1 of the container),
+	// where they accumulated as zombies and progressively slowed every later
+	// invocation until all node RPCs timed out. WaitDelay bounds how long we
+	// wait for the output pipes after the kill.
+	setProcessGroupKill(cmd)
+	cmd.WaitDelay = 2 * time.Second
+
 	// This time we can simply use CombinedOutput() to get the result.
 	out, err := cmd.CombinedOutput()
 

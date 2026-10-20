@@ -92,4 +92,13 @@ RUN    ln -s /chroot/chroot-host-wrapper.sh /chroot/blkid \
     && ln -s /chroot/chroot-host-wrapper.sh /chroot/xfs_growfs
 
 ENV PATH="/chroot:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ENTRYPOINT ["/root/entrypoint.sh"]
+
+# Run the driver under a real init. The driver is PID 1 of the container and
+# does not reap orphaned descendants, so any helper process that outlives a
+# killed wrapper script (e.g. on command timeout) stayed behind as a zombie.
+# Tens of thousands of them accumulated on busy nodes and slowed the wrapper's
+# /proc scan past the driver's command timeout, wedging every NodeStage.
+ADD --checksum=sha256:c5b0666b4cb676901f90dfcb37106783c5fe2077b04590973b885950611b30ee \
+    https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-amd64 /usr/local/bin/tini
+RUN chmod 755 /usr/local/bin/tini
+ENTRYPOINT ["/usr/local/bin/tini", "--", "/root/entrypoint.sh"]

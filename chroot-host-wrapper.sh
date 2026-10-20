@@ -59,18 +59,48 @@ if [ -z "${RESOLVED}" ]; then
     exit 1
 fi
 
+# Locate the host multipathd process WITHOUT forking per PID.
+#
+# The previous implementation ran `cat /host/proc/<pid>/comm` for every
+# process on the host. That is O(number of host processes) forks, which on a
+# busy build node (thousands of processes, CSI container CPU-throttled) took
+# longer than the driver's 10 s command timeout. Every timed-out invocation
+# then left an orphaned subshell behind as a zombie under the driver (PID 1 of
+# the container), which made the next scan slower still, until every
+# NodeStage/NodeUnstage on the node failed with "context deadline exceeded".
+#
+# Now: use the bash builtin `read` (no fork), walk PIDs in numeric order
+# (multipathd starts early, so its PID is low), and cache the answer. The
+# cache is validated against /proc/<pid>/comm on every use so a restarted
+# multipathd is picked up immediately.
+MPATHD_PID_CACHE="/tmp/.csi-multipathd-pid"
+find_multipathd_pid() {
+    local pid comm p
+    if [ -r "${MPATHD_PID_CACHE}" ]; then
+        read -r pid 2>/dev/null < "${MPATHD_PID_CACHE}"
+        if [ -n "${pid}" ] && read -r comm 2>/dev/null < "${DIR}/proc/${pid}/comm" \
+            && [ "${comm}" = "multipathd" ]; then
+            echo "${pid}"
+            return 0
+        fi
+    fi
+    for p in $(cd "${DIR}/proc" && printf '%s\n' [0-9]* | sort -n); do
+        read -r comm 2>/dev/null < "${DIR}/proc/${p}/comm" || continue
+        if [ "${comm}" = "multipathd" ]; then
+            echo "${p}" > "${MPATHD_PID_CACHE}" 2>/dev/null
+            echo "${p}"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # On immutable-rootfs OSes like Talos Linux, multipath/multipathd run inside
 # an extension service container with a writable rootfs. Enter that
 # container's mount namespace instead of chrooting to the host, where
 # /etc/multipath cannot be created on the read-only rootfs.
 if [ "${ME}" = "multipath" ] || [ "${ME}" = "multipathd" ]; then
-    MPATHD_PID=""
-    for pid in "${DIR}"/proc/[0-9]*; do
-        if [ "$(cat "${pid}/comm" 2>/dev/null)" = "multipathd" ]; then
-            MPATHD_PID=$(basename "${pid}")
-            break
-        fi
-    done
+    MPATHD_PID="$(find_multipathd_pid)"
     if [ -n "${MPATHD_PID}" ]; then
         NSENTER="nsenter --mount=${DIR}/proc/${MPATHD_PID}/ns/mnt"
         # The standalone multipath binary cannot access udev inside the
@@ -86,4 +116,3 @@ if [ "${ME}" = "multipath" ] || [ "${ME}" = "multipathd" ]; then
 fi
 
 exec env -i PATH="${HOST_PATH}" chroot "${DIR}" "${RESOLVED}" "${@:1}"
-
