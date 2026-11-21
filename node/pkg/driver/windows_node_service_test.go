@@ -405,7 +405,9 @@ func TestWindowsNodeStageVolume(t *testing.T) {
 				if !strings.Contains(ps.last("Initialize-Disk"), "Format-Volume -FileSystem NTFS") {
 					t.Fatalf("prepare script does not format NTFS: %s", ps.last("Initialize-Disk"))
 				}
-				if acl := ps.last("icacls.exe"); !strings.Contains(acl, `'\\?\Volume{39289ba9-4a9f-40fc-8121-35284a3443e0}\' /grant '*S-1-5-11:(OI)(CI)M'`) {
+				if acl := ps.last("icacls.exe"); !strings.Contains(acl, `$p = '\\?\Volume{39289ba9-4a9f-40fc-8121-35284a3443e0}\'`) ||
+					!strings.Contains(acl, `& icacls.exe $p /grant '*S-1-5-11:(OI)(CI)M'`) ||
+					!strings.Contains(acl, `.Contains("${au}:(OI)(CI)(M)")) { return }`) {
 					t.Fatalf("unexpected access grant script: %s", acl)
 				}
 			} else if mountScript != "" {
