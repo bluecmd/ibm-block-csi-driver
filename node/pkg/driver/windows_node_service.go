@@ -382,8 +382,18 @@ func (d *WindowsNodeService) addAccessPath(diskNumber int, partitionNumber int, 
 // The grant goes through the volume GUID path: icacls on a mount point
 // path edits the junction directory on the parent volume, not the mounted
 // volume's root.
+//
+// It is skipped when the root already carries the entry: /grant rewrites the
+// root's DACL even then, and Windows propagates the inheritable entry to
+// every file on the volume again. On a volume with millions of files (a
+// Bazel cache) that outlasts the stage deadline on every remount.
 func (d *WindowsNodeService) grantVolumeAccess(volumePath string) error {
-	script := fmt.Sprintf("& icacls.exe %s /grant '*S-1-5-11:(OI)(CI)M' | Out-Null\n"+
+	script := fmt.Sprintf("$p = %s\n"+
+		"$au = (New-Object System.Security.Principal.SecurityIdentifier('S-1-5-11')).Translate([System.Security.Principal.NTAccount]).Value\n"+
+		"$cur = & icacls.exe $p\n"+
+		"if ($LASTEXITCODE -ne 0) { throw \"icacls failed with exit code $LASTEXITCODE\" }\n"+
+		"if (($cur | Out-String).Contains(\"${au}:(OI)(CI)(M)\")) { return }\n"+
+		"& icacls.exe $p /grant '*S-1-5-11:(OI)(CI)M' | Out-Null\n"+
 		"if ($LASTEXITCODE -ne 0) { throw \"icacls failed with exit code $LASTEXITCODE\" }", psQuote(volumePath))
 	_, err := d.runPowershell(script)
 	return err
